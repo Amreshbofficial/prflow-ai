@@ -43,3 +43,12 @@ export const outreachApi = {
 export const researchApi = {
   generate: (leadId: string | number) => fetchAPI(`/leads/${leadId}/research`, { method: "POST" }),
 };
+
+export const analyticsApi = {
+  getDashboardStats: () => fetchAPI("/analytics/dashboard"),
+};
+
+export const followupsApi = {
+  getFollowups: () => fetchAPI("/followups"),
+  complete: (id: string | number) => fetchAPI(`/followups/${id}/complete`, { method: "PATCH" }),
+};

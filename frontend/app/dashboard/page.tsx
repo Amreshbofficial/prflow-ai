@@ -1,7 +1,21 @@
+"use client";
+
 import Link from "next/link";
-import { Users, Mail, Calendar, ArrowRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Users, Mail, Calendar, ArrowRight, Activity } from "lucide-react";
+import { analyticsApi, leadsApi } from "@/lib/api";
 
 export default function DashboardPage() {
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: analyticsApi.getDashboardStats,
+  });
+
+  const { data: leadsData } = useQuery({
+    queryKey: ["leads"],
+    queryFn: leadsApi.getLeads,
+  });
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div>
@@ -23,7 +37,9 @@ export default function DashboardPage() {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Total Leads</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">124</div>
+                    <div className="text-2xl font-semibold text-gray-900">
+                      {statsLoading ? "..." : stats?.total_leads || 0}
+                    </div>
                   </dd>
                 </dl>
               </div>
@@ -41,7 +57,9 @@ export default function DashboardPage() {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">New This Week</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">18</div>
+                    <div className="text-2xl font-semibold text-gray-900">
+                      {statsLoading ? "..." : stats?.new_this_week || 0}
+                    </div>
                   </dd>
                 </dl>
               </div>
@@ -59,7 +77,9 @@ export default function DashboardPage() {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Outreach Sent</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">67</div>
+                    <div className="text-2xl font-semibold text-gray-900">
+                      {statsLoading ? "..." : stats?.outreach_sent || 0}
+                    </div>
                   </dd>
                 </dl>
               </div>
@@ -71,13 +91,15 @@ export default function DashboardPage() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Calendar className="h-6 w-6 text-amber-500" />
+                <Activity className="h-6 w-6 text-indigo-500" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Follow-ups Due</dt>
+                  <dt className="text-sm font-medium text-gray-500 truncate">AI Generated</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">12</div>
+                    <div className="text-2xl font-semibold text-gray-900">
+                      {statsLoading ? "..." : stats?.ai_generated_messages || 0}
+                    </div>
                   </dd>
                 </dl>
               </div>
@@ -96,20 +118,26 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="px-6 py-5">
-            <p className="text-gray-500 text-sm">Leads data will be loaded here from the API.</p>
+            {leadsData?.items && leadsData.items.length > 0 ? (
+              <ul className="divide-y divide-gray-200">
+                {leadsData.items.slice(0, 5).map((lead: any) => (
+                  <li key={lead.id} className="py-3 flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{lead.company_name}</p>
+                      <p className="text-sm text-gray-500">{lead.contact_name}</p>
+                    </div>
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                      {lead.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-500 text-sm">No leads available.</p>
+            )}
           </div>
         </div>
 
         {/* Follow-ups Panel */}
         <div className="bg-white shadow-sm rounded-lg border border-gray-200">
           <div className="px-6 py-5 border-b border-gray-200">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">Follow-ups Due Today</h3>
-          </div>
-          <div className="px-6 py-5">
-            <p className="text-gray-500 text-sm">No follow-ups due today.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}

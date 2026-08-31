@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1 import auth, leads, outreach
+from app.api.v1 import auth, leads, outreach, followups, analytics
 from app.db.session import engine, Base
 
 # For MVP prototype, ensure tables are created automatically
@@ -26,6 +26,8 @@ if settings.CORS_ORIGINS:
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(leads.router, prefix=f"{settings.API_V1_STR}/leads", tags=["leads"])
 app.include_router(outreach.router, prefix=f"{settings.API_V1_STR}/outreach", tags=["outreach"])
+app.include_router(followups.router, prefix=f"{settings.API_V1_STR}/followups", tags=["followups"])
+app.include_router(analytics.router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"])
 
 @app.get(f"{settings.API_V1_STR}/health")
 def health_check():
