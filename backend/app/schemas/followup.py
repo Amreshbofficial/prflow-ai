@@ -12,10 +12,19 @@ class FollowupBase(BaseModel):
 class FollowupCreate(FollowupBase):
     pass
 
+class FollowupLeadInfo(BaseModel):
+    id: int
+    company_name: str
+    contact_name: str
+    
+    class Config:
+        from_attributes = True
+
 class FollowupResponse(FollowupBase):
     id: int
     created_at: datetime
     completed_at: Optional[datetime]
+    lead: Optional[FollowupLeadInfo] = None
 
     class Config:
         from_attributes = True

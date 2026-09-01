@@ -43,7 +43,7 @@ class MockAIProvider(AIProvider):
                 subject=f"Exploring synergies with {company_name}",
                 message=f"Hi {contact_name},\n\nI was impressed by the recent work at {company_name}. "
                         "I'd love to connect and discuss how we might collaborate on upcoming PR initiatives.\n\n"
-                        "Best regards,\nAmresh",
+                        "Best regards,\nThe PRFlow AI Team",
                 personalization_points=[
                     f"Addressed to {contact_name}",
                     f"Mentioned {company_name}"

@@ -1,130 +1,271 @@
 "use client";
 
+import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Search, Building } from "lucide-react";
+import { Plus, Building, Download, Upload, MoreHorizontal, ArrowRight } from "lucide-react";
 import { leadsApi } from "@/lib/api";
 
+import { PageHeader } from "@/components/ui/page-header";
+import { DataTable } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { SearchInput } from "@/components/ui/search-input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { ImportModal } from "@/components/ui/import-modal";
+import { useToast } from "@/components/ui/toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
 export default function LeadsPage() {
-  const { data, isLoading, error } = useQuery({
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All Statuses");
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["leads"],
     queryFn: leadsApi.getLeads,
   });
 
-  return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+  const deleteMutation = useMutation({
+    mutationFn: async (ids: (string | number)[]) => {
+      await Promise.all(ids.map(id => leadsApi.delete(id)));
+    },
+    onSuccess: () => {
+      toast({
+        type: "success",
+        title: "Leads Deleted",
+        description: "Selected leads have been removed.",
+      });
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: () => {
+      toast({
+        type: "error",
+        title: "Delete Failed",
+        description: "Failed to delete selected leads.",
+      });
+    }
+  });
+
+  const handleBulkDelete = () => {
+    if (window.confirm(`Are you sure you want to delete ${selectedIds.size} lead(s)?`)) {
+      deleteMutation.mutate(Array.from(selectedIds));
+    }
+  };
+
+  // Filter logic
+  const items = data?.items || [];
+  const filteredItems = items.filter((lead: any) => {
+    const matchesSearch = 
+      lead.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.contact_name?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === "All Statuses" || lead.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleSelectAll = (selectAll: boolean) => {
+    if (selectAll) {
+      setSelectedIds(new Set(filteredItems.map((item: any) => item.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelect = (id: string | number) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  };
+
+  const columns = [
+    {
+      header: "Company",
+      accessor: (lead: any) => (
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage your PR prospects and company information.
-          </p>
+          <div className="font-medium text-text-primary">{lead.company_name}</div>
+          <div className="text-text-muted mt-0.5">{lead.website || "No website"}</div>
         </div>
-        <Link
-          href="/dashboard/leads/new"
-          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Lead
-        </Link>
+      )
+    },
+    {
+      header: "Contact",
+      accessor: (lead: any) => (
+        <div>
+          <div className="text-text-primary">{lead.contact_name}</div>
+          <div className="text-text-muted mt-0.5">{lead.contact_email}</div>
+        </div>
+      )
+    },
+    {
+      header: "Industry",
+      accessor: "industry",
+      className: "text-text-secondary"
+    },
+    {
+      header: "Status",
+      accessor: (lead: any) => <StatusBadge status={lead.status} />
+    },
+    {
+      header: "",
+      accessor: (lead: any) => (
+        <div className="flex justify-end">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/dashboard/leads/${lead.id}`);
+            }}
+            className="text-text-muted hover:text-primary transition-colors p-2 rounded-md hover:bg-surface-secondary"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+          </button>
+        </div>
+      ),
+      className: "text-right"
+    }
+  ];
+
+  if (error) {
+    return (
+      <div className="w-full mt-8">
+        <ErrorState onRetry={() => refetch()} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full space-y-6 animate-in fade-in duration-500">
+      {/* Hero header band */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-[#4f46e5]/[0.06] via-surface to-surface p-6 sm:p-7">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.14),transparent_70%)]" />
+        <div className="relative">
+          <PageHeader
+            title="Leads"
+            description="Manage your PR prospects, journalists, and company information."
+          >
+            <button
+              onClick={() => setIsImportOpen(true)}
+              className="hidden sm:inline-flex items-center justify-center rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-secondary hover:text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4f46e5]/20 shadow-sm"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import
+            </button>
+            <button
+              onClick={() => toast({ type: 'info', title: 'Coming Soon', description: 'Export functionality is not yet available.' })}
+              className="hidden sm:inline-flex items-center justify-center rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-secondary hover:text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4f46e5]/20 shadow-sm"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </button>
+            <Link
+              href="/dashboard/leads/new"
+              className="group inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#4f46e5] to-[#6366f1] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition-all hover:shadow-lg hover:shadow-indigo-500/30 hover:from-[#4338ca] hover:to-[#4f46e5] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4f46e5]/20 active:scale-[0.99]"
+            >
+              <Plus className="h-4 w-4" />
+              Add Lead
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </PageHeader>
+        </div>
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-        <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full max-w-sm">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search leads..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+      <div className="bg-surface rounded-2xl border border-border shadow-[0_12px_36px_-14px_rgba(15,23,42,0.10)] overflow-hidden flex flex-col transition-shadow hover:shadow-[0_16px_44px_-14px_rgba(15,23,42,0.14)]">
+        <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-4 justify-between items-center bg-surface-secondary/40">
+          <div className="w-full max-w-sm">
+            <SearchInput
+              placeholder="Search leads by name or company..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
-             <select className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                <option>All Statuses</option>
-                <option>New</option>
-                <option>Researching</option>
-                <option>Contacted</option>
-                <option>Replied</option>
-             </select>
+          <div className="flex gap-3 w-full sm:w-auto">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="block w-full sm:w-48 pl-3 pr-10 py-2 text-sm border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-[#4f46e5]/30 focus:border-[#4f46e5] rounded-xl transition-colors text-text-primary shadow-sm"
+            >
+              <option value="All Statuses">All Statuses</option>
+              <option value="New">New</option>
+              <option value="Researching">Researching</option>
+              <option value="Contacted">Contacted</option>
+              <option value="Replied">Replied</option>
+              <option value="Qualified">Qualified</option>
+            </select>
           </div>
         </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Company
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Industry
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-500">
-                    Loading leads...
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-sm text-red-500">
-                    Error loading leads. Please check your backend connection.
-                  </td>
-                </tr>
-              ) : data?.items?.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-16 text-center">
-                    <Building className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No leads</h3>
-                    <p className="mt-1 text-sm text-gray-500">Get started by creating a new lead.</p>
-                  </td>
-                </tr>
-              ) : (
-                data?.items?.map((lead: any) => (
-                  <tr key={lead.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{lead.company_name}</div>
-                      <div className="text-sm text-gray-500">{lead.website}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{lead.contact_name}</div>
-                      <div className="text-sm text-gray-500">{lead.contact_email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {lead.industry}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {lead.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Link href={`/dashboard/leads/${lead.id}`} className="text-indigo-600 hover:text-indigo-900">
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+
+        {selectedIds.size > 0 && (
+          <div className="bg-[#4f46e5]/[0.04] border-b border-[#4f46e5]/10 px-6 py-3 flex items-center justify-between animate-in slide-in-from-top-2">
+            <span className="text-sm font-semibold text-primary">
+              {selectedIds.size} lead{selectedIds.size > 1 ? 's' : ''} selected
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={handleBulkDelete}
+                disabled={deleteMutation.isPending}
+                className="text-xs font-semibold text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40"
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete Selected"}
+              </button>
+              <button
+                onClick={() => toast({ type: 'info', title: 'Coming Soon', description: 'Bulk update functionality is not yet available.' })}
+                className="text-xs font-semibold text-primary hover:text-primary-hover px-3 py-1.5 rounded-lg bg-white shadow-sm transition-colors border border-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f46e5]/30"
+              >
+                Bulk Update
+              </button>
+            </div>
+          </div>
+        )}
+
+        <DataTable
+          data={filteredItems}
+          columns={columns}
+          keyExtractor={(row) => row.id}
+          isLoading={isLoading}
+          selectedIds={selectedIds}
+          onSelect={handleSelect}
+          onSelectAll={handleSelectAll}
+          onRowClick={(row) => router.push(`/dashboard/leads/${row.id}`)}
+          emptyState={
+            <EmptyState
+              icon={Building}
+              title="No leads found"
+              description={searchQuery || statusFilter !== "All Statuses" ? "Try adjusting your filters or search query." : "Get started by adding your first PR lead or importing a list."}
+              className="border-0 rounded-none border-b border-border bg-transparent"
+              action={
+                <Link
+                  href="/dashboard/leads/new"
+                  className="group inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-[#4f46e5] to-[#6366f1] text-white shadow-md shadow-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/30 hover:from-[#4338ca] hover:to-[#4f46e5] transition-all active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4f46e5]/20"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Lead
+                </Link>
+              }
+            />
+          }
+          page={1}
+          totalPages={Math.ceil(filteredItems.length / 10) || 1}
+        />
       </div>
+
+      <ImportModal 
+        isOpen={isImportOpen} 
+        onClose={() => setIsImportOpen(false)}
+        onSuccess={() => {
+          refetch();
+        }}
+      />
     </div>
   );
 }

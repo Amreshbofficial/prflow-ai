@@ -9,50 +9,47 @@ from app.schemas.ai import ResearchSummary, OutreachDraft
 T = TypeVar("T", bound=BaseModel)
 
 class AIServiceRunner:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, owner_id: int = None):
         self.db = db
+        self.owner_id = owner_id
         self.provider = get_ai_provider()
         self.provider_name = self.provider.__class__.__name__
 
     def _execute_and_log(
-        self, 
-        task_type: str, 
-        system_prompt: str, 
-        user_prompt: str, 
+        self,
+        task_type: str,
+        system_prompt: str,
+        user_prompt: str,
         response_model: Type[T]
     ) -> T:
         start_time = time.time()
-        
-        # We start by creating the run record
+
         ai_run = AIRun(
+            owner_id=self.owner_id,
             provider=self.provider_name,
-            model="default",  # could be dynamic based on provider
+            model="default",
             task_type=task_type,
             prompt_version="v1",
             input_data={"system": system_prompt, "user": user_prompt},
-            status="pending"
+            status="pending",
         )
         self.db.add(ai_run)
         self.db.commit()
-        
+
         try:
-            # Execute AI generation
             result = self.provider.generate_structured(system_prompt, user_prompt, response_model)
-            
-            # If we get here, Pydantic validation inside or returned by provider succeeded
+
             ai_run.output_data = result.model_dump()
             ai_run.validation_status = "success"
             ai_run.status = "completed"
-            
+
         except ValidationError as e:
-            # Schema validation failed
             ai_run.output_data = {"error": "ValidationError", "details": e.errors()}
             ai_run.validation_status = "failed"
             ai_run.status = "failed"
             self.db.commit()
             raise e
         except Exception as e:
-            # Other errors (network, timeout)
             ai_run.output_data = {"error": str(e)}
             ai_run.validation_status = "unknown"
             ai_run.status = "failed"
@@ -62,7 +59,7 @@ class AIServiceRunner:
             end_time = time.time()
             ai_run.latency_ms = int((end_time - start_time) * 1000)
             self.db.commit()
-            
+
         return result
 
     def generate_lead_research(self, lead: Lead) -> ResearchSummary:
@@ -77,12 +74,12 @@ class AIServiceRunner:
             f"Website: {lead.website}\n"
             f"Description: {lead.description}\n"
         )
-        
+
         return self._execute_and_log(
             task_type="lead_research",
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            response_model=ResearchSummary
+            response_model=ResearchSummary,
         )
 
     def generate_outreach(self, lead: Lead, goal: str, tone: str, channel: str, key_angle: str) -> OutreachDraft:
@@ -102,10 +99,10 @@ class AIServiceRunner:
             f"Channel: {channel}\n"
             f"Goal: {goal}\n"
         )
-        
+
         return self._execute_and_log(
             task_type="outreach_generation",
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            response_model=OutreachDraft
+            response_model=OutreachDraft,
         )

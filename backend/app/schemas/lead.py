@@ -1,5 +1,5 @@
 from pydantic import BaseModel, HttpUrl
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
 
 class LeadBase(BaseModel):
@@ -33,6 +33,7 @@ class LeadUpdate(BaseModel):
 
 class LeadResponse(LeadBase):
     id: int
+    research_data: Optional[Any] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -42,3 +43,18 @@ class LeadResponse(LeadBase):
 class LeadListResponse(BaseModel):
     items: List[LeadResponse]
     total: int
+
+from app.schemas.outreach import OutreachResponse
+
+class ActivityResponse(BaseModel):
+    id: int
+    type: str
+    description: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class LeadDetailResponse(LeadResponse):
+    activities: List[ActivityResponse] = []
+    outreach_messages: List[OutreachResponse] = []
