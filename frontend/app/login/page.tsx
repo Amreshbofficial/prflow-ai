@@ -177,23 +177,18 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Decoy fields that intercept browser autofill */}
-              <div className="absolute opacity-0 h-0 w-0 overflow-hidden" aria-hidden="true">
-                <input tabIndex={-1} autoComplete="username" name="fake-username" type="email" />
-                <input tabIndex={-1} autoComplete="new-password" name="fake-password" type="password" />
-              </div>
 
-              <div>
-                <label htmlFor="pf-email" className="mb-1.5 block text-[12px] font-semibold text-[#334155]">
+
+              <div>                  <label htmlFor="email" className="mb-1.5 block text-[12px] font-semibold text-[#334155]">
                   Work email
                 </label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#94a3b8]" />
                   <input
-                    id="pf-email"
-                    name="pf-email"
+                    id="email"
+                    name="email"
                     type="email"
-                    autoComplete="off"
+                    autoComplete="username"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -205,7 +200,7 @@ export default function LoginPage() {
 
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <label htmlFor="pf-password" className="text-[12px] font-semibold text-[#334155]">
+                  <label htmlFor="password" className="text-[12px] font-semibold text-[#334155]">
                     Password
                   </label>
                   {mode === "login" && (
@@ -217,10 +212,10 @@ export default function LoginPage() {
                 <div className="relative">
                   <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#94a3b8]" />
                   <input
-                    id="pf-password"
-                    name="pf-password"
+                    id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
-                    autoComplete="off"
+                    autoComplete={mode === "register" ? "new-password" : "current-password"}
                     required
                     minLength={mode === "register" ? 8 : undefined}
                     value={password}
