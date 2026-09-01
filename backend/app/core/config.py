@@ -7,28 +7,29 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_database_url() -> str:
-    """Return DATABASE_URL, falling back to local SQLite when PostgreSQL is unreachable."""
+    """
+    Return DATABASE_URL from environment.
+    - Production: requires DATABASE_URL to be set (PostgreSQL).
+    - Development/demo: falls back to local SQLite when DATABASE_URL is unset.
+    """
     env_url = os.getenv("DATABASE_URL", "")
-    if not env_url or env_url.startswith("sqlite"):
-        # Explicit SQLite or unset → use development DB file
-        db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prflow_dev.db")
-        url = f"sqlite:///{db_path}"
-        logger.info(f"Using SQLite database: {db_path}")
-        return url
+    environment = os.getenv("ENVIRONMENT", "development")
 
-    # PostgreSQL configured — verify connectivity
-    try:
-        import psycopg2  # noqa: F401
-        conn = psycopg2.connect(env_url)
-        conn.close()
-        logger.info("PostgreSQL connection verified.")
+    if env_url:
         return env_url
-    except Exception as e:
-        logger.warning(
-            f"PostgreSQL unreachable ({e}). Falling back to SQLite for development."
+
+    # No DATABASE_URL set — only allowed in development/demo
+    if environment in ("production", "staging"):
+        raise RuntimeError(
+            "DATABASE_URL environment variable is required in production. "
+            "Set it to your PostgreSQL connection string (e.g. Neon)."
         )
-        db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prflow_dev.db")
-        return f"sqlite:///{db_path}"
+
+    # Development/demo fallback to local SQLite
+    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prflow_dev.db")
+    url = f"sqlite:///{db_path}"
+    logger.info(f"No DATABASE_URL set. Using SQLite: {db_path}")
+    return url
 
 
 class Settings(BaseSettings):
@@ -39,7 +40,7 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
-    # Database — auto-resolves to SQLite if PostgreSQL is unavailable
+    # Database — resolved from DATABASE_URL env var
     DATABASE_URL: str = _resolve_database_url()
 
     # Auth

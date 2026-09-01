@@ -14,11 +14,13 @@ from app.api.v1 import auth, leads, outreach, followups, analytics, users
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Only auto-create tables in development/demo mode
-if settings.ENVIRONMENT in ("development", "demo"):
+# Only auto-create tables in local development mode (never in production/staging)
+if settings.ENVIRONMENT == "development":
     from app.db.session import engine, Base
     Base.metadata.create_all(bind=engine)
     logger.info("Development mode: tables created automatically")
+elif settings.ENVIRONMENT in ("production", "staging"):
+    logger.info(f"Environment={settings.ENVIRONMENT}: using Alembic migrations (no create_all)")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
