@@ -2,13 +2,18 @@ import os
 import sys
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
 
 # Add the backend directory to sys.path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, backend_dir)
+
+# Load .env BEFORE importing settings so DATABASE_URL is available
+load_dotenv(os.path.join(backend_dir, '.env'))
 
 from app.core.config import settings
 from app.models.domain import Base
